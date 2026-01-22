@@ -1,28 +1,30 @@
--- ==================== MURDER MYSTERY 2 CHAT ADVERTISER ====================
+-- ==================== ADOPT ME CHAT ADVERTISER ====================
 -- Simple script that advertises RBLX.PW in chat and hops servers automatically
 -- ============================================================================
 
 -- ==================== CONFIGURATION ====================
-local PLACE_ID = 142823291  -- Murder Mystery 2 place ID
-local MIN_PLAYERS = 1  -- Accept any server with at least 1 player
+local PLACE_ID = 920587237  -- Adopt Me place ID
+local MIN_PLAYERS_PREFERRED = 5  -- Preferred minimum players
+local MIN_PLAYERS_FALLBACK = 1  -- Fallback minimum if search takes too long
 local MAX_PLAYERS_ALLOWED = 100  -- Accept almost any server
+local SEARCH_TIMEOUT = 15  -- After 15 seconds, lower standards
 local TELEPORT_COOLDOWN = 15  -- Reduced cooldown
 local SCRIPT_URL = "https://raw.githubusercontent.com/ivankodaria5-ai/reklamabot/refs/heads/main/reklama.lua"  -- UPDATE THIS!
 
 -- Advertisement messages (English)
 local MESSAGES = {
-    "Best site to sell MM2 items - RBLX . PW",
-    "Got extra godlies? Sell them on RBLX PW for mon3y",
-    "RBLX . PW - #1 marketplace for MM2 knives and guns",
-    "Sel your MM2 items safely on RBLX . PW",
-    "Trade MM2 godlies for cash at RBLX. PW",
-    "RBLX . PW - instant payouts for your MM2 items",
-    "Got duplicate godlies? Cash them out on RBLX . PW",
-    "SeIIing MM2 items? Check out RBLX.PW for best prices",
-    "RBLX . PW - tra sted mark etplace for MM2 trading",
-    "Turn your MM2 collection into cash at RBLX . PW",
-    "RBLX . PW - safe and fast MM2 item sales",
-    "Best pri ces for MM2 godlies at RBLX . PW"
+    "Best site to sell Adopt Me pets - RBLX . PW",
+    "Got extra pets? Sell them on RBLX PW for mon3y",
+    "RBLX . PW - #1 marketplace for Adopt Me pets",
+    "Sel your Adopt Me pets safely on RBLX . PW",
+    "Trade Adopt Me pets for cash at RBLX. PW",
+    "RBLX . PW - instant payouts for your Adopt Me pets",
+    "Got duplicate pets? Cash them out on RBLX . PW",
+    "SeIIing Adopt Me pets? Check out RBLX.PW for best prices",
+    "RBLX . PW - tra sted mark etplace for Adopt Me trading",
+    "Turn your Adopt Me pets into cash at RBLX . PW",
+    "RBLX . PW - safe and fast Adopt Me pet sales",
+    "Best pri ces for Adopt Me pets at RBLX . PW"
 }
 
 -- ==================== SERVICES ====================
@@ -50,7 +52,7 @@ end
 local function saveLog()
     if writefile then
         local content = table.concat(logLines, "\n")
-        writefile("mm2_advertiser.log", content)
+        writefile("adoptme_advertiser.log", content)
     end
 end
 
@@ -152,10 +154,21 @@ local function serverHop()
     end
     
     local cursor = ""
-    local maxPages = 5  -- Check max 5 pages to avoid infinite loop
+    local maxPages = 10  -- Check more pages for Adopt Me
     local pagesChecked = 0
+    local searchStartTime = tick()
+    local currentMinPlayers = MIN_PLAYERS_PREFERRED
+    
+    log("[HOP] Looking for servers with " .. currentMinPlayers .. "+ players...")
     
     while pagesChecked < maxPages do
+        -- Check if search is taking too long
+        local elapsedTime = tick() - searchStartTime
+        if elapsedTime > SEARCH_TIMEOUT and currentMinPlayers ~= MIN_PLAYERS_FALLBACK then
+            currentMinPlayers = MIN_PLAYERS_FALLBACK
+            log("[HOP] Search timeout! Lowering requirements to " .. currentMinPlayers .. "+ players...")
+        end
+        
         pagesChecked = pagesChecked + 1
         task.wait(2)  -- Increased delay to avoid rate limiting
         
@@ -220,6 +233,7 @@ local function serverHop()
         
         -- Find valid servers (any server that's not current one)
         log("[HOP DEBUG] Total servers in response: " .. (body.data and #body.data or 0))
+        log("[HOP DEBUG] Current requirement: " .. currentMinPlayers .. "+ players")
         
         local servers = {}
         local serverStats = {}  -- For debugging
@@ -228,7 +242,7 @@ local function serverHop()
             table.insert(serverStats, players)
             
             if server.id ~= game.JobId 
-                and players >= MIN_PLAYERS 
+                and players >= currentMinPlayers 
                 and players <= MAX_PLAYERS_ALLOWED then
                 table.insert(servers, server)
             end
@@ -299,7 +313,7 @@ local function serverHop()
 end
 
 -- ==================== MAIN LOOP ====================
-log("=== MM2 CHAT ADVERTISER STARTED ===")
+log("=== ADOPT ME CHAT ADVERTISER STARTED ===")
 log("=== ADVERTISING RBLX.PW ===")
 
 -- Wait for character to load
