@@ -7,7 +7,7 @@ local PLACE_ID = 920587237  -- Adopt Me place ID
 local MIN_PLAYERS_PREFERRED = 5  -- Preferred minimum players
 local MIN_PLAYERS_FALLBACK = 1  -- Fallback minimum if search takes too long
 local MAX_PLAYERS_ALLOWED = 100  -- Accept almost any server
-local SEARCH_TIMEOUT = 15  -- After 15 seconds, lower standards
+local SEARCH_TIMEOUT = 5  -- After 5 seconds, lower standards
 local TELEPORT_COOLDOWN = 15  -- Reduced cooldown
 local SCRIPT_URL = "https://raw.githubusercontent.com/ivankodaria5-ai/reklamabot/refs/heads/main/reklama.lua"  -- UPDATE THIS!
 
@@ -316,13 +316,34 @@ end
 log("=== ADOPT ME CHAT ADVERTISER STARTED ===")
 log("=== ADVERTISING RBLX.PW ===")
 
--- Wait for character to load
-if not player.Character then
-    log("Waiting for character...")
-    player.CharacterAdded:Wait()
-end
-player.Character:WaitForChild("HumanoidRootPart")
-log("Character loaded!")
+-- Wait for game to load (but don't wait for character in Adopt Me)
+log("Waiting for game to load...")
+task.wait(3)  -- Just wait 3 seconds for UI to load
+log("Game loaded! Chat is ready!")
+
+-- Try to auto-click Play button if it exists
+task.spawn(function()
+    task.wait(1)
+    local success = pcall(function()
+        local playerGui = player:WaitForChild("PlayerGui", 5)
+        if playerGui then
+            -- Look for common Play button locations in Adopt Me
+            for _, gui in pairs(playerGui:GetDescendants()) do
+                if gui:IsA("TextButton") and (gui.Name == "PlayButton" or gui.Text:lower():find("play")) then
+                    log("[AUTO] Found Play button, clicking...")
+                    for i = 1, 3 do
+                        gui.Activated:Fire()
+                        task.wait(0.5)
+                    end
+                    break
+                end
+            end
+        end
+    end)
+    if success then
+        log("[AUTO] Play button auto-click attempted")
+    end
+end)
 
 -- Server counter for pattern
 local serverCount = 0
