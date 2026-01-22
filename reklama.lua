@@ -157,24 +157,42 @@ local function serverHop()
             return httprequest({Url = url})
         end)
         
-        if not success or not response then
-            log("[HOP] HTTP request failed!")
+        if not success then
+            log("[HOP] HTTP request error: " .. tostring(response))
             task.wait(5)
             continue
         end
         
+        if not response then
+            log("[HOP] No response object!")
+            task.wait(5)
+            continue
+        end
+        
+        log("[HOP DEBUG] Response StatusCode: " .. tostring(response.StatusCode or "N/A"))
+        
         if not response.Body then
-            log("[HOP] No response body! Rate-limited?")
+            log("[HOP] No response body! Rate-limited or blocked")
             task.wait(10)
             continue
         end
+        
+        log("[HOP DEBUG] Response Body length: " .. #tostring(response.Body))
+        log("[HOP DEBUG] Response Body preview: " .. tostring(response.Body):sub(1, 200))
         
         local bodySuccess, body = pcall(function() 
             return HttpService:JSONDecode(response.Body) 
         end)
         
-        if not bodySuccess or not body or not body.data then
-            log("[HOP] Failed to parse response!")
+        if not bodySuccess then
+            log("[HOP] JSON decode error: " .. tostring(body))
+            task.wait(5)
+            continue
+        end
+        
+        if not body or not body.data then
+            log("[HOP] Response missing 'data' field!")
+            log("[HOP DEBUG] Body keys: " .. table.concat(body and {table.unpack(body)} or {}, ", "))
             task.wait(5)
             continue
         end
