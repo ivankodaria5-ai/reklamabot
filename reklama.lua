@@ -257,43 +257,19 @@ log("Character loaded!")
 
 -- Main advertising loop
 local function advertiseLoop()
-    local messageCount = 0
-    local messagesToSend = math.random(3, 4)
+    local messagesToSend = 3  -- Always send 3 messages
     
-    log("[MAIN] Will send " .. messagesToSend .. " messages then hop")
+    log("[MAIN] Sending " .. messagesToSend .. " messages immediately then hopping...")
     
-    while messageCount < messagesToSend do
-        -- Send random advertisement message
+    -- Send 3 random messages immediately (no delay between them)
+    for i = 1, messagesToSend do
         local message = MESSAGES[math.random(#MESSAGES)]
-        log("[CHAT] Sending message " .. (messageCount + 1) .. "/" .. messagesToSend .. ": " .. message)
+        log("[CHAT] Sending message " .. i .. "/" .. messagesToSend .. ": " .. message)
         sendChat(message)
-        
-        messageCount = messageCount + 1
-        
-        -- If not last message, wait before sending next one
-        if messageCount < messagesToSend then
-            local waitTime = math.random(MESSAGE_INTERVAL_MIN, MESSAGE_INTERVAL_MAX)
-            log("[MAIN] Waiting " .. waitTime .. " seconds before next message...")
-            
-            -- Do anti-AFK movement while waiting
-            local elapsed = 0
-            while elapsed < waitTime do
-                local chunk = math.min(15, waitTime - elapsed)
-                task.wait(chunk)
-                elapsed = elapsed + chunk
-                
-                -- Do a quick circle move every 15 seconds
-                if elapsed < waitTime then
-                    startCircleMove(2)
-                    task.wait(2)
-                    elapsed = elapsed + 2
-                end
-            end
-        end
+        task.wait(0.5)  -- Small delay to ensure messages go through
     end
     
-    -- Done sending messages, hop to new server
-    log("[MAIN] Sent all messages! Switching to new server...")
+    log("[MAIN] All messages sent! Switching to new server...")
     serverHop()
 end
 
