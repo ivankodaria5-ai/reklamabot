@@ -4,8 +4,8 @@
 
 -- ==================== CONFIGURATION ====================
 local PLACE_ID = 142823291  -- Murder Mystery 2 place ID
-local MIN_PLAYERS = 5  -- Minimum players in server (lowered for easier hop)
-local MAX_PLAYERS_ALLOWED = 20  -- Maximum players in server (increased for easier hop)
+local MIN_PLAYERS = 1  -- Accept any server with at least 1 player
+local MAX_PLAYERS_ALLOWED = 100  -- Accept almost any server
 local TELEPORT_COOLDOWN = 15  -- Reduced cooldown
 local SCRIPT_URL = "https://raw.githubusercontent.com/ivankodaria5-ai/reklamabot/refs/heads/main/reklama.lua"  -- UPDATE THIS!
 
@@ -157,7 +157,7 @@ local function serverHop()
     
     while pagesChecked < maxPages do
         pagesChecked = pagesChecked + 1
-        task.wait(1)
+        task.wait(2)  -- Increased delay to avoid rate limiting
         
         local url = string.format(
             "https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100%s",
@@ -184,6 +184,13 @@ local function serverHop()
         end
         
         log("[HOP DEBUG] Response StatusCode: " .. tostring(response.StatusCode or "N/A"))
+        
+        -- Check for rate limiting
+        if response.StatusCode == 429 then
+            log("[HOP] Rate limited! Waiting 30 seconds...")
+            task.wait(30)
+            continue
+        end
         
         if not response.Body then
             log("[HOP] No response body! Rate-limited or blocked")
@@ -212,16 +219,28 @@ local function serverHop()
         end
         
         -- Find valid servers (any server that's not current one)
+        log("[HOP DEBUG] Total servers in response: " .. (body.data and #body.data or 0))
+        
         local servers = {}
-        for _, server in pairs(body.data) do
+        local serverStats = {}  -- For debugging
+        for _, server in pairs(body.data or {}) do
+            local players = server.playing or 0
+            table.insert(serverStats, players)
+            
             if server.id ~= game.JobId 
-                and server.playing >= MIN_PLAYERS 
-                and server.playing <= MAX_PLAYERS_ALLOWED then
+                and players >= MIN_PLAYERS 
+                and players <= MAX_PLAYERS_ALLOWED then
                 table.insert(servers, server)
             end
         end
         
-        log("[HOP] Found " .. #servers .. " servers on this page")
+        -- Show player count distribution
+        if #serverStats > 0 then
+            table.sort(serverStats)
+            log("[HOP DEBUG] Player counts: min=" .. serverStats[1] .. " max=" .. serverStats[#serverStats] .. " (showing first 10: " .. table.concat({table.unpack(serverStats, 1, math.min(10, #serverStats))}, ",") .. ")")
+        end
+        
+        log("[HOP] Found " .. #servers .. " suitable servers on this page")
         
         if #servers > 0 then
             -- Pick a random server from the list
