@@ -137,6 +137,20 @@ local function serverHop()
     log("[HOP] Starting server hop...")
     saveLog()
     
+    -- Check if httprequest is available
+    if not httprequest then
+        log("[HOP] httprequest not available! Using simple teleport...")
+        queueFunc('loadstring(game:HttpGet("' .. SCRIPT_URL .. '"))()')
+        local tpOk = pcall(function()
+            TeleportService:Teleport(PLACE_ID, player)
+        end)
+        if tpOk then
+            log("[HOP] Simple teleport started!")
+            task.wait(999)
+        end
+        return
+    end
+    
     local cursor = ""
     local maxPages = 5  -- Check max 5 pages to avoid infinite loop
     local pagesChecked = 0
@@ -246,8 +260,23 @@ local function serverHop()
     end
     
     log("[HOP] Could not find server after checking " .. pagesChecked .. " pages")
-    log("[HOP] Waiting 30s before retrying...")
-    task.wait(30)
+    log("[HOP] Using fallback: Random server teleport...")
+    
+    -- Fallback: Just teleport to a random server (Roblox will pick one)
+    queueFunc('loadstring(game:HttpGet("' .. SCRIPT_URL .. '"))()')
+    
+    local tpOk, err = pcall(function()
+        TeleportService:Teleport(PLACE_ID, player)
+    end)
+    
+    if tpOk then
+        log("[HOP] Random teleport initiated! Waiting...")
+        task.wait(999)
+    else
+        log("[HOP] Random teleport failed: " .. tostring(err))
+        log("[HOP] Waiting 30s before retrying...")
+        task.wait(30)
+    end
 end
 
 -- ==================== MAIN LOOP ====================
