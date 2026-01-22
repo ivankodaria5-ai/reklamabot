@@ -4,15 +4,10 @@
 
 -- ==================== CONFIGURATION ====================
 local PLACE_ID = 142823291  -- Murder Mystery 2 place ID
-local MIN_PLAYERS = 8  -- Minimum players in server
-local MAX_PLAYERS_ALLOWED = 12  -- Maximum players in server
-local TELEPORT_RETRY_DELAY = 8
-local TELEPORT_COOLDOWN = 30
+local MIN_PLAYERS = 5  -- Minimum players in server (lowered for easier hop)
+local MAX_PLAYERS_ALLOWED = 20  -- Maximum players in server (increased for easier hop)
+local TELEPORT_COOLDOWN = 15  -- Reduced cooldown
 local SCRIPT_URL = "https://raw.githubusercontent.com/ivankodaria5-ai/reklamabot/refs/heads/main/reklama.lua"  -- UPDATE THIS!
-
-local MESSAGE_INTERVAL_MIN = 25  -- Minimum seconds between messages
-local MESSAGE_INTERVAL_MAX = 45  -- Maximum seconds between messages
-local MESSAGES_BEFORE_HOP = math.random(3, 4)  -- Send 3-4 messages then hop to new server
 
 -- Advertisement messages (English)
 local MESSAGES = {
@@ -143,9 +138,12 @@ local function serverHop()
     saveLog()
     
     local cursor = ""
+    local maxPages = 5  -- Check max 5 pages to avoid infinite loop
+    local pagesChecked = 0
     
-    while true do
-        task.wait(2)
+    while pagesChecked < maxPages do
+        pagesChecked = pagesChecked + 1
+        task.wait(1)
         
         local url = string.format(
             "https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100%s",
@@ -153,20 +151,21 @@ local function serverHop()
             cursor ~= "" and "&cursor=" .. cursor or ""
         )
         
+        log("[HOP] Checking page " .. pagesChecked .. "...")
+        
         local success, response = pcall(function()
             return httprequest({Url = url})
         end)
         
         if not success or not response then
-            log("[HOP] HTTP request failed, retrying in 5s...")
-            waitWithMovement(5)
+            log("[HOP] HTTP request failed!")
+            task.wait(5)
             continue
         end
         
         if not response.Body then
-            log("[HOP] Response has no Body! Likely rate-limited.")
-            log("[HOP] Waiting 20 seconds...")
-            waitWithMovement(20)
+            log("[HOP] No response body! Rate-limited?")
+            task.wait(10)
             continue
         end
         
@@ -175,12 +174,12 @@ local function serverHop()
         end)
         
         if not bodySuccess or not body or not body.data then
-            log("[HOP] Failed to parse response, retrying in 5s...")
-            waitWithMovement(5)
+            log("[HOP] Failed to parse response!")
+            task.wait(5)
             continue
         end
         
-        -- Find valid servers
+        -- Find valid servers (any server that's not current one)
         local servers = {}
         for _, server in pairs(body.data) do
             if server.id ~= game.JobId 
@@ -190,15 +189,14 @@ local function serverHop()
             end
         end
         
+        log("[HOP] Found " .. #servers .. " servers on this page")
+        
         if #servers > 0 then
-            table.sort(servers, function(a, b) return (a.playing or 0) > (b.playing or 0) end)
-            
-            log("[HOP] Found " .. #servers .. " suitable servers")
-            
-            local selected = servers[1]
+            -- Pick a random server from the list
+            local selected = servers[math.random(#servers)]
             local playing = selected.playing or "?"
             local maxP = selected.maxPlayers or "?"
-            log("[HOP] Trying server: " .. selected.id .. " (" .. playing .. "/" .. maxP .. ")")
+            log("[HOP] Teleporting to server: " .. selected.id .. " (" .. playing .. "/" .. maxP .. ")")
             
             -- Queue script for next server
             queueFunc('loadstring(game:HttpGet("' .. SCRIPT_URL .. '"))()')
@@ -211,36 +209,27 @@ local function serverHop()
             end)
             
             if tpOk then
-                log("[HOP] Teleport initiated! Waiting...")
-                waitWithMovement(180)  -- Wait 3 minutes
-                log("[HOP] Teleport timed out")
-                log("[HOP] Cooling down for " .. TELEPORT_COOLDOWN .. "s...")
-                waitWithMovement(TELEPORT_COOLDOWN)
+                log("[HOP] Teleport started! Waiting for load...")
+                task.wait(999)  -- Wait indefinitely, script will reload on new server
+                return
             else
-                log("[HOP] Teleport failed: " .. tostring(err))
-                log("[HOP] Cooling down for " .. TELEPORT_COOLDOWN .. "s...")
-                waitWithMovement(TELEPORT_COOLDOWN)
-            end
-            
-            if body.nextPageCursor then
-                cursor = body.nextPageCursor
-                log("[HOP] Moving to next page...")
-            else
-                log("[HOP] Exhausted all pages, restarting...")
-                waitWithMovement(TELEPORT_COOLDOWN)
-                cursor = ""
+                log("[HOP] Teleport error: " .. tostring(err))
+                task.wait(5)
             end
         else
+            log("[HOP] No suitable servers on this page")
             if body.nextPageCursor then
                 cursor = body.nextPageCursor
-                log("[HOP] No suitable servers, checking next page...")
             else
-                log("[HOP] Exhausted all pages. Starting over in 10s...")
-                waitWithMovement(10)
-                cursor = ""
+                log("[HOP] No more pages!")
+                break
             end
         end
     end
+    
+    log("[HOP] Could not find server after checking " .. pagesChecked .. " pages")
+    log("[HOP] Waiting 30s before retrying...")
+    task.wait(30)
 end
 
 -- ==================== MAIN LOOP ====================
@@ -269,16 +258,16 @@ local function advertiseLoop()
         task.wait(0.5)  -- Small delay to ensure messages go through
     end
     
-    log("[MAIN] All messages sent! Switching to new server...")
+    log("[MAIN] All messages sent! Waiting 2 seconds before server hop...")
+    task.wait(2)  -- Give players time to see messages
+    
+    log("[MAIN] Switching to new server...")
     serverHop()
 end
 
--- Start the main loop
-advertiseLoop()
-
--- Fallback restart (should never reach here)
-log("[ERROR] Main loop ended! Restarting...")
-task.wait(5)
+-- Start the main loop with fallback
 while true do
     advertiseLoop()
+    log("[MAIN] Restarting loop...")
+    task.wait(2)
 end
